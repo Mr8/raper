@@ -1,0 +1,147 @@
+#!/usr/bin/env bash
+
+set -e
+RED_COLOR='\E[1;31m'
+RES='\E[0m'
+
+GOFMT="/usr/bin/gofmt"
+GO="/usr/bin/go"
+
+raper_gen_main() {
+    cat > src/$1/main.go << EOF
+package main
+
+import (
+    "fmt"
+)
+
+func main() {
+    fmt.Println("Hello, world");
+}
+EOF
+}
+
+raper_gen_readme() {
+    if [ ! -f README.md ]; then
+        cat > README.md << EOF
+# the README file
+EOF
+    fi
+}
+
+raper_gen_requirements() {
+    if [ ! -f requirements.txt ]; then
+        cat > requirements.txt << EOF
+## add the requirements like:
+# github.com/go-sql-driver/mysql
+EOF
+    fi
+}
+
+raper_install_requirements() {
+    [[ -f requirements.txt ]] || return 1;
+    cat requirements.txt | while read line
+    do
+        [[ $line == "#"* ]] && continue
+        echo -e "${RED_COLOR}[BUILD]${RES}Install pkg ($line)"
+        $GO get -v $line
+    done
+}
+
+raper_build() {
+    pkg_name=$1
+    mkdir -p src/$pkg_name
+    if [[ -f src/$pkg_name/main.go ]]; then
+        echo -e "${RED_COLOR}[ERROR]${RES} ${pkg_name} exists"
+        return 1
+    fi
+
+    touch src/$pkg_name/main.go
+    raper_gen_main $pkg_name
+    CURDIR=`pwd`
+    OLDGOPATH="$GOPATH"
+    export GOPATH="$CURDIR"
+    if [ -e $GOFMT ]; then
+        $GOFMT -w src
+    fi
+
+    raper_gen_readme
+    raper_gen_requirements
+    raper_install_requirements
+
+    $GO install $pkg_name
+    export GOPATH="$OLDGOPATH"
+    return 0
+}
+
+raper_install() {
+    pkg_name=$1
+    CURDIR=`pwd`
+    OLDGOPATH="$GOPATH"
+    export GOPATH="$CURDIR"
+    if [ -e $GOFMT ]; then
+        $GOFMT -w src
+    fi
+    raper_install_requirements
+    $GO install $pkg_name
+    export GOPATH="$OLDGOPATH"
+    return 0
+}
+
+usage() {
+    echo "Raper the Golang builder"
+    echo "[-b|--build NAME] build the normal struct of project"
+    echo "[-i|--install PACKAGENAME] install the package as whole"
+    echo "[-h|--help] it's me"
+    echo "[-v|--verbose] show verbose infomation"
+    echo "example:"
+    echo "raper -b foo | raper --build foo"
+    echo "raper -i foo | raper --install foo"
+    echo "raper --h | raper --help"
+    echo "raper --v | raper --verbose"
+}
+
+if [[ $# -lt 1 ]]; then
+    usage
+    exit 1
+fi
+
+TEMP=`getopt -o b:i:v,h \
+    --long build:,install:,verbose,help -- "$@"`
+if [ $? != 0 ] ; then echo "Terminating..." >&2 ; exit 1 ; fi
+
+eval set -- "$TEMP"
+
+while true ; do
+    case $1 in
+
+        -b|--build)
+            NAME=$2; shift 2 ;;
+
+        -i|--install)
+            PKG_NAME=$2; shift 2 ;;
+
+        -v|--verbose)
+            VERBOSE="v"; shift ;;
+
+        -h|--help)
+            HELP=1; shift ;;
+
+        --)
+            shift; break ;;
+
+        *)
+            echo "unknown argument $1"; exit 1 ;;
+    esac
+done
+
+if [[ $NAME != "" ]]; then
+    echo -e "${RED_COLOR}[BUILD]${RES} $NAME"
+    raper_build $NAME
+    [[ $? == 0 ]] && echo -e "${RED_COLOR}[DONE]${RES}"
+    exit 0;
+fi
+
+if [[ $PKG_NAME != "" ]]; then
+    raper_install $PKG_NAME
+fi
