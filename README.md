@@ -38,12 +38,26 @@ requirement.txt 项目依赖
 ### 安装命令:
 初始状态下，build 命令会默认调用 install 命令
 在 requirement.txt 中加入依赖关系
+
 `cat requirements.txt `
+
 ```
 ## add the requirements like:
 github.com/go-sql-driver/mysql
 ```
+src/foo/main.go 中依赖于mysql driver
+```
+package main
 
+import (
+        "fmt"
+        "github.com/go-sql-driver/mysql"
+)
+
+func main() {
+        fmt.Println("Hello, world")
+}
+```
 `./raper --install foo`
 生成目录如下
 ```
@@ -73,4 +87,5 @@ github.com/go-sql-driver/mysql
 ```
 
 所有项目依赖会自动安装，二进制发布到 bin/foo
+
 
