@@ -1,4 +1,4 @@
-# Raper: Golang 项目构建脚本
+# Raper: Golang 项目构建脚本(The Golang project builder)
 Tags: Golang
 ---
 
